@@ -78,3 +78,4 @@ def max_diff(out1, out2, name):
 
 max_diff(out1, out2, "out")
 max_diff(lse1, lse2, "log_sum_exp")
+print(dir(out1))
