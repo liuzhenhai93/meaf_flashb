@@ -3,12 +3,17 @@ import paddle
 from paddle import _C_ops
 from paddle.incubate.nn.memory_efficient_attention import LowerTriangularMask
 
+import paddle
+from custom_attention import meaf_flashb
 
 def flash_attn(query, key, value, dropout=0.0, causal=True):
     out, _, lse, seed_offset = _C_ops.flash_attn(query, key, value,
         dropout, causal, False, False)
     return out, lse, seed_offset
 
+def custum_attention(query, key, value, dropout=0.0, causal=True):
+    out, lse, seed_offset = meaf_flashb(query, key, value, dropout, causal, False)
+    return out, lse, seed_offset
 
 def mea(query, key, value, dropout=0.0, causal=True):
     seqstart_k, seqstart_q, max_seqlen_q, max_seqlen_k = None, None, -1, -1  
@@ -47,7 +52,7 @@ paddle.seed(seed)
 
 offsets = []
 for i in range(10): 
-    out1, lse1, so1 = flash_attn(query, key, value)
+    out1, lse1, so1 = custum_attention(query, key, value)
     out2, lse2, so2 = mea(query, key, value)     
     so1 = so1.numpy().tolist()
     so2 = so2.numpy().tolist()
@@ -78,4 +83,4 @@ def max_diff(out1, out2, name):
 
 max_diff(out1, out2, "out")
 max_diff(lse1, lse2, "log_sum_exp")
-print(dir(out1))
+#print(dir(out1))
