@@ -151,6 +151,7 @@ def test_attention_precision(dropout=0.0):
         attention = get_attention(paddle_attention, att)
         t = attention(*data,True, dropout)
         t.backward()
+        paddle.device.cuda.synchronize() 
         outputs.append(t)
 
     paddle.device.cuda.synchronize()    
