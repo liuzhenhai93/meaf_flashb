@@ -140,7 +140,7 @@ def test_attention_precision():
     dtype = 'bfloat16'
 
     inputs = [create_data(shape, dtype) for i in range(3)]
-    att_types = ["mea", "flash", "meaf_flashb"]
+    att_types = ["flash","mea", "meaf_flashb"]
     outputs = []
     paddle.device.cuda.synchronize()
     for (att, data) in zip(att_types, inputs):
@@ -165,17 +165,13 @@ def test_attention_precision():
         max_diff_y = b[idx].astype(paddle.float32).numpy()[0]
         print(f'{context}: max diff {max_diff} ({max_diff_x} VS {max_diff_y}), mean diff {mean_diff}')
 
-    check_diff("mea vs flash out", outputs[0], outputs[1])
-    check_diff("mea vs flash q-grad", inputs[0][0].grad, inputs[1][0].grad)     
-    check_diff("mea vs flash k-grad", inputs[0][1].grad, inputs[1][1].grad)
-    check_diff("mea vs flash v-grad", inputs[0][2].grad, inputs[1][2].grad)
-
-
-    check_diff("mea vs meaf_flashb out", outputs[0], outputs[2])
-    check_diff("mea vs meaf_flashb q-grad", inputs[0][0].grad, inputs[2][0].grad)     
-    check_diff("mea vs meaf_flashb k-grad", inputs[0][1].grad, inputs[2][1].grad)
-    check_diff("mea vs meaf_flashb v-grad", inputs[0][2].grad, inputs[2][2].grad)
-
+    for i in range(3):
+        for j in range(i+1,3):
+            print(f"{i} {j}")
+            names = ["q-grad", "k-grad", "v-grad"]
+            check_diff(f"{att_types[i]} vs {att_types[j]} out", outputs[i], outputs[j])
+            for k in range(3):
+                check_diff(f"{att_types[i]} vs {att_types[j]} {names[k]}", inputs[i][k].grad, inputs[j][k].grad)   
 
 
 def test_attention_perfromance():
@@ -191,8 +187,9 @@ def test_attention_perfromance():
         total_time = forward_time + backward_time
         forward_time, backward_time = time_attention_func(attention, q, k, v, True)
         backward_time_nosync = total_time - forward_time
-        print(f"paddle-{att},x,1.0,1.0,{forward_time},{backward_time},{backward_time_nosync},{forward_time+backward_time}, {total_time}")
+        print(f"paddle-{att}, forward_time {forward_time} backward_time {backward_time_nosync} total_time {total_time}")
+        #print(f"paddle-{att},x,1.0,1.0,{forward_time},{backward_time},{backward_time_nosync},{forward_time+backward_time}, {total_time}")
 
 if __name__ =='__main__':
-    test_attention_perfromance()
+    #test_attention_perfromance()
     test_attention_precision()
