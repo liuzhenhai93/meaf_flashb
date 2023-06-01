@@ -12,7 +12,7 @@ from paddle.incubate.nn.memory_efficient_attention import (
     memory_efficient_attention,
 )
 
-from custom_attention import meaf_flashb
+from meaf_flashb import meaf_flashb
 
 
 class PaddleAttension(object):
@@ -70,7 +70,7 @@ class PaddleAttension(object):
         return out
 
     def _meaf_flashb(self, q, k, v, causal, dropout=0.0):
-        out, lse, seed_offset = meaf_flashb(q, k, v, dropout, causal, False)
+        out, lse, seed_offset = meaf_flashb(q, k, v, causal, False)
         return out
 
 
@@ -198,5 +198,4 @@ def test_attention_perfromance():
 if __name__ =='__main__':
     test_attention_perfromance()
     test_attention_precision()
-    test_attention_precision(0.1)
 
