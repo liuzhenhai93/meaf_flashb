@@ -51,11 +51,11 @@ class PaddleAttension(object):
         # (b, seq, head, hidden)
         return paddle.transpose(o, [0, 2, 1, 3])
 
-    def _flash_attention(self, q, k, v, causal):
+    def _flash_attention(self, q, k, v, causal, dropout=0.0):
         out, _ = flash_attention(q, k, v, causal=causal)
         return out
 
-    def _memory_efficient_attention(self, q, k, v, causal):
+    def _memory_efficient_attention(self, q, k, v, causal, dropout=0.0):
         scale = 1.0 / np.sqrt(q.shape[-1])
         att_bias = ab.LowerTriangularMask() if causal else None
         out = memory_efficient_attention(
@@ -63,14 +63,14 @@ class PaddleAttension(object):
             k,
             v,
             att_bias,
-            0.0,
+            dropout,
             scale,
             True
         )
         return out
 
-    def _meaf_flashb(self, q, k, v, causal):
-        out, lse, seed_offset = meaf_flashb(q, k, v, 0.0, causal, False)
+    def _meaf_flashb(self, q, k, v, causal, dropout=0.0):
+        out, lse, seed_offset = meaf_flashb(q, k, v, dropout, causal, False)
         return out
 
 
@@ -116,14 +116,17 @@ def create_data(shape, dtype):
 
 def get_attention(paddle_attention, method):
 
-    def attention1(q, k, v, causal):
-        return paddle_attention._flash_attention(q, k, v, causal)
+    def attention1(q, k, v, causal, dropout=0.0):
+        paddle.seed(0)
+        return paddle_attention._flash_attention(q, k, v, causal, dropout)
 
-    def attention2(q, k, v, causal):
-        return paddle_attention._memory_efficient_attention(q, k, v, causal)
+    def attention2(q, k, v, causal, dropout=0.0):
+        paddle.seed(0)
+        return paddle_attention._memory_efficient_attention(q, k, v, causal, dropout)
 
-    def attention3(q, k, v, causal):
-        return paddle_attention._meaf_flashb(q, k, v, causal)
+    def attention3(q, k, v, causal, dropout=0.0):
+        paddle.seed(0)
+        return paddle_attention._meaf_flashb(q, k, v, causal, dropout)
 
     if method == "flash" :
         return attention1
@@ -133,7 +136,8 @@ def get_attention(paddle_attention, method):
         return attention3        
 
 
-def test_attention_precision():
+def test_attention_precision(dropout=0.0):
+    print(f"dropout={dropout}")
     paddle_attention = PaddleAttension()
     shape = (1, 32*1024, 12, 128)
     causal = True
@@ -145,7 +149,7 @@ def test_attention_precision():
     paddle.device.cuda.synchronize()
     for (att, data) in zip(att_types, inputs):
         attention = get_attention(paddle_attention, att)
-        t = attention(*data,True)
+        t = attention(*data,True, dropout)
         t.backward()
         outputs.append(t)
 
@@ -167,7 +171,7 @@ def test_attention_precision():
 
     for i in range(3):
         for j in range(i+1,3):
-            print(f"{i} {j}")
+            #print(f"{i} {j}")
             names = ["q-grad", "k-grad", "v-grad"]
             check_diff(f"{att_types[i]} vs {att_types[j]} out", outputs[i], outputs[j])
             for k in range(3):
@@ -191,5 +195,7 @@ def test_attention_perfromance():
         #print(f"paddle-{att},x,1.0,1.0,{forward_time},{backward_time},{backward_time_nosync},{forward_time+backward_time}, {total_time}")
 
 if __name__ =='__main__':
-    #test_attention_perfromance()
+    test_attention_perfromance()
     test_attention_precision()
+    test_attention_precision(0.1)
+
